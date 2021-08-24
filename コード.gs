@@ -7,11 +7,6 @@ function main() {
   judgeIfNeedsToRemoved(referenceCalendarId, syncCalendarId, lineNotifyToken);
 }
 
-function deleteToken() {
-  var properties = PropertiesService.getUserProperties();
-  properties.deleteProperty('syncToken');
-}
-
 /**
  * Helper function to get a new Date object relative to the current date.
  * @param {number} daysOffset The number of days in the future for the new date.
@@ -51,7 +46,6 @@ function patchEvent(patchedEvent, patchingEvent, syncCalendarId, lineNotifyToken
       };
 
   try {
-    // TODO
     let formerEvent = patchingEvent;
     let event = Calendar.Events.patch(resource, syncCalendarId, patchingEvent.id);
     sendLINENotificationWhenPatched(formerEvent, event, lineNotifyToken);
@@ -165,6 +159,8 @@ function logSyncedEvents(referenceCalendarId, syncCalendarId, keyword, lineNotif
     options.syncToken = syncToken;
   } else {
     Logger.log("fullSyncを行います。");
+    properties.deleteProperty('syncToken');
+
     options.timeMin = getRelativeDate(-7, 0).toISOString();
     options.timeMax = getRelativeDate(90, 0).toISOString();
   }
@@ -188,8 +184,7 @@ function logSyncedEvents(referenceCalendarId, syncCalendarId, keyword, lineNotif
     } catch {
       // Check to see if the sync token was invalidated by the server;
       // if so, perform a full sync instead.  
-      properties.deleteProperty('syncToken');
-      logSyncedEvents(referenceCalendarId, true); // 初回実行時やsyncTokenの期限が切れた場合
+      logSyncedEvents(referenceCalendarId, true); // syncTokenの期限が切れた場合
       return;
     }
 
