@@ -184,7 +184,7 @@ function logSyncedEvents(referenceCalendarId, syncCalendarId, keyword, lineNotif
     } catch {
       // Check to see if the sync token was invalidated by the server;
       // if so, perform a full sync instead.  
-      logSyncedEvents(referenceCalendarId, true); // syncTokenの期限が切れた場合
+      logSyncedEvents(referenceCalendarId, syncCalendarId, keyword, lineNotifyToken, true); // syncTokenの期限が切れた場合
       return;
     }
 
