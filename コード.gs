@@ -1,10 +1,15 @@
 function main() {
-  const referenceCalendarId = '参照するカレンダーID';
-  const syncCalendarId = '同期するカレンダーID';
-  const keyword = 'キーワード';
-  const lineNotifyToken = 'LINE Notifyで取得したトークン'
+  const referenceCalendarId = '参照元のカレンダーID';
+  const syncCalendarId = '同期先のカレンダーID';
+  const lineNotifyToken = 'LINE Notifyで取得したトークン';
+  const keyword = 'カレンダーのイベントの説明に含まれているキーワード';
   logSyncedEvents(referenceCalendarId, syncCalendarId, keyword, lineNotifyToken, false);
-  judgeIfNeedsToRemoved(referenceCalendarId, syncCalendarId);
+  judgeIfNeedsToRemoved(referenceCalendarId, syncCalendarId, lineNotifyToken);
+}
+
+function deleteToken() {
+  var properties = PropertiesService.getUserProperties();
+  properties.deleteProperty('syncToken');
 }
 
 /**
@@ -77,10 +82,14 @@ function insertEvent(event, syncCalendarId, lineNotifyToken) {
     }
   };
 
-  event = Calendar.Events.insert(resource, syncCalendarId);
-  Logger.log("イベントが追加されました。");
-  console.log('%s (%s)', event.summary, event.start.dateTime.toLocaleString());
-  sendLINENotificationWhenInserted(event, lineNotifyToken);
+  try {
+    event = Calendar.Events.insert(resource, syncCalendarId);
+    Logger.log("イベントが追加されました。");
+    console.log('%s (%s)', event.summary, event.start.dateTime.toLocaleString());
+    sendLINENotificationWhenInserted(event, lineNotifyToken);
+  } catch(error) {
+    console.error(error);
+  }
 }
 
 // このままではonedayイベントが削除できないが、必要ないはず
@@ -155,6 +164,7 @@ function logSyncedEvents(referenceCalendarId, syncCalendarId, keyword, lineNotif
   if (syncToken && !fullSync) {
     options.syncToken = syncToken;
   } else {
+    Logger.log("fullSyncを行います。");
     options.timeMin = getRelativeDate(-7, 0).toISOString();
     options.timeMax = getRelativeDate(90, 0).toISOString();
   }
@@ -175,14 +185,18 @@ function logSyncedEvents(referenceCalendarId, syncCalendarId, keyword, lineNotif
     try {
       options.pageToken = pageToken;
       events = Calendar.Events.list(referenceCalendarId, options);
-      syncCalEvents = Calendar.Events.list(syncCalendarId, optionsForSyncCal);
     } catch {
-      Logger.log("full syncを行います。")
       // Check to see if the sync token was invalidated by the server;
       // if so, perform a full sync instead.  
       properties.deleteProperty('syncToken');
       logSyncedEvents(referenceCalendarId, true); // 初回実行時やsyncTokenの期限が切れた場合
       return;
+    }
+
+    try {
+      syncCalEvents = Calendar.Events.list(syncCalendarId, optionsForSyncCal);
+    } catch {
+      Logger.log("同期先のカレンダーからイベントを取得できませんでした。");
     }
 
     let eventsItems = events.items.filter(Evt => Evt.description?.includes(keyword));
